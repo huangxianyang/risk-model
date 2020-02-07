@@ -10,7 +10,7 @@ from setuptools import setup,find_packages
 
 setup(
     name = "riskModel",
-    version = "1.0.1",
+    version = "1.0.2",
     author="huangsir",
     author_email="hxysir@163.com",
     url = "https://github.com/huangxianyang/risk-model",
