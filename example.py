@@ -156,7 +156,7 @@ df_res['score'] = sc.score_ply(df=df_res)
 ###############################
 # 6.模型评估,真实样本评估
 ##############################
-german_woe,_ = rm.woe_trans(df=df,bin_dict=bin_dict,trans_feature=all_feature,target="target")
+german_woe, _ = rm.woe_trans(df=df,bin_dict=bin_dict,trans_feature=all_feature,target="target")
 # print(german_woe.isnull().sum())
 y_prob = lr_cv.predict_proba(german_woe[select_feature].values)[:,1]
 y_true = german_woe['target'].values

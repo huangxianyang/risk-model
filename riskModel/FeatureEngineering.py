@@ -31,8 +31,8 @@ class FeatureBin(object):
     """
     变量分箱, 即特征离散化
     """
-    def __init__(self,df,target="target",special_values=None,breaks_list=None,min_per_fine_bin=0.01,
-                 stop_limit=0.02, min_per_coarse_bin=0.05, max_num_bin=5, method="tree"):
+    def __init__(self,df,target="target",special_values=None,breaks_list=None,min_per_fine_bin=0.02,
+                 stop_limit=0.1, min_per_coarse_bin=0.05, max_num_bin=5, method="tree"):
         """
         分箱类属性
         :param df: df
@@ -82,9 +82,12 @@ class FeatureBin(object):
 
         # 开始分箱
         for col in bin_feature:
-            bin_dict[col] = woebin(dt=df[[col,self._target]],y=self._target,x=col,breaks_list=self._breaks_list,special_values=self._special_values,
-                                   min_perc_fine_bin=self._min_per_fine_bin,min_perc_coarse_bin=self._min_per_coarse_bin,stop_limit=self._stop_limit,
-                                   max_num_bin=max_num_bin,method=self._method)[col]
+            try:
+                bin_dict[col] = woebin(dt=df[[col,self._target]],y=self._target,x=col,breaks_list=self._breaks_list,special_values=self._special_values,
+                                       min_perc_fine_bin=self._min_per_fine_bin,min_perc_coarse_bin=self._min_per_coarse_bin,stop_limit=self._stop_limit,
+                                       max_num_bin=max_num_bin,method=self._method)[col]
+            except AttributeError:
+                bin_dict[col] = woebin(dt=df[[col, self._target]], y=self._target, x=col)[col]
             var_iv[col] = bin_dict[col]["total_iv"].unique()[0]
 
         print("处理完{}个无序类别变量,耗时:{}秒".format(len(bin_feature),(time.process_time()-t0)*100/60))
@@ -146,9 +149,12 @@ class FeatureBin(object):
                 mono_cutOffPoints = {}
 
             # 最终方案
-            bin_dict[col] = woebin(dt=df[[col,self._target]],y=self._target,x=col,breaks_list=mono_cutOffPoints,special_values=special_values,
-                                      min_perc_fine_bin=self._min_per_fine_bin,min_perc_coarse_bin=self._min_per_coarse_bin,stop_limit=self._stop_limit,
-                                      max_num_bin=max_num_bin,method=self._method)[col]
+            try:
+                bin_dict[col] = woebin(dt=df[[col,self._target]],y=self._target,x=col,breaks_list=mono_cutOffPoints,special_values=special_values,
+                                          min_perc_fine_bin=self._min_per_fine_bin,min_perc_coarse_bin=self._min_per_coarse_bin,stop_limit=self._stop_limit,
+                                          max_num_bin=max_num_bin,method=self._method)[col]
+            except AttributeError:
+                bin_dict[col] = woebin(dt=df[[col, self._target]], y=self._target,x=col)[col]
             # 保存IV
             var_iv[col] = bin_dict[col]["total_iv"].unique()[0]
 
@@ -208,8 +214,8 @@ def woe_trans(df,bin_dict,trans_feature,target="target"):
         warnings.warn("trans_feature not in bin_dict.keys, Please double check feature set")
         raise SystemExit(0)
 
-    dt = df[trans_feature+[target]]
-    df_woe = woebin_ply(dt=dt,bins=bin_dict)
+    # dt = df[trans_feature+[target]]
+    df_woe = woebin_ply(dt=df,bins=bin_dict)
     new_feature = [i+"_woe" for i in trans_feature]
 
     if not set(new_feature).issubset(set(df_woe.columns.difference([target]).tolist())):
@@ -262,7 +268,6 @@ class WoeBinPlot(object):
                 plt.close()
         return plotList
 
-PltF = PlotFeatureEn()
 class SelectFeature(object):
     """特征选择"""
 
@@ -284,8 +289,9 @@ class SelectFeature(object):
         high_IV = {k:v for (k,v) in sorted(high_IV.items(),key=lambda x:x[1],reverse=True)} # 排序
         high_IV_df = pd.Series(high_IV)
         if is_save: #保存IV图片及IV表
+            PltF = PlotFeatureEn()
             PltF.draw_IV(IV_dict=high_IV, path=path, xlabel=xlabel, figsize=figsize, is_save=is_save)
-            high_IV_df.to_excel(path+"high_iv_df.xlsx",index=False)
+            high_IV_df.to_excel(path+"high_iv_df.xlsx",index=True)
         return high_IV
 
     def baseOn_importance(self,features:list,target:str='target',n_estimators:int = 100,is_save:bool=False,
@@ -317,6 +323,7 @@ class SelectFeature(object):
             feature_importance[k] = v
         # 可视化
         if is_save:
+            PltF = PlotFeatureEn()
             PltF.draw_importance(importance=importance,features=features,figsize=figsize,path=path)
         feature_importance = {k:v for k,v in sorted(feature_importance.items(),key=lambda x:x[1],reverse=True)}
         return feature_importance
@@ -356,6 +363,7 @@ class SelectFeature(object):
         feature_VIF = {k:v for k,v in zip(last_feature,VIF_list)}
         #相关性可视化
         if is_save:
+            PltF = PlotFeatureEn()
             PltF.draw_corr(df=self._df_woe,figsize=figsize,path=path)
         return feature_VIF
 

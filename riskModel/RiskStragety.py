@@ -67,8 +67,8 @@ def var_psi(select_feature:list,trainData,testData):
     # 输出每个变量的PSI
     for var in select_feature:
         psi_dict_var[var] = psi_dict[var].sum()
-    var_psi_df = pd.DataFrame(psi_dict_var,index=[0]).T
-    return var_psi_df
+    # var_psi_df = pd.DataFrame(psi_dict_var,index=[0]).T
+    return psi_dict_var
 
 
 def bin_list(low_line:int,up_line:int,step:int):
