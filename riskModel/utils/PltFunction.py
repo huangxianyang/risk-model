@@ -45,6 +45,8 @@ class PlotFeatureEn(object):
 
         if is_save:
             plt.savefig(path + "high_iv.png")
+        plt.show()
+        plt.close()
 
     def draw_importance(self,importance, features, figsize, path):
         """特征重要度"""
@@ -59,6 +61,8 @@ class PlotFeatureEn(object):
         plt.xticks(range(len(indices)), features[indices], rotation='vertical', fontsize=14)
         plt.xlim([-1, len(indices)])
         plt.savefig(path + "feature_importance.png")
+        plt.show()
+        plt.close()
 
     def draw_corr(self,df, figsize: tuple, path: str):
         """
@@ -79,6 +83,8 @@ class PlotFeatureEn(object):
         sns.heatmap(df.corr(), linewidths=0.1, vmax=1.0, square=True, cmap=colormap, linecolor='white', annot=True,
                     mask=mask)
         plt.savefig(path + "feature_corr.png")
+        plt.show()
+        plt.close()
 
 class PlotModel(object):
     """模型作图"""
@@ -104,7 +110,7 @@ class PlotModel(object):
         plt.title('ROC curve')  # ROC 曲线
         plt.legend(loc='best')
         plt.savefig(filename+"roc_curve.png")
-        # plt.show()
+        plt.show()
         plt.close()
         return auc_value
 
@@ -124,7 +130,7 @@ class PlotModel(object):
         plt.title('{}'.format(ks_value), fontsize=15)
         plt.xlim((0.0, 1))
         plt.savefig(filename+"ks_curve.png")  # 保存
-        # plt.show()
+        plt.show()
         plt.close()
         return ks_value
 
@@ -158,5 +164,5 @@ class PlotModel(object):
         plt.xlabel('Predicted')
         plt.title("confusion matrix")
         plt.savefig(filename+"matrix.png")
-        # plt.show()
+        plt.show()
         plt.close()

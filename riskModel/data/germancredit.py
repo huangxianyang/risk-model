@@ -33,7 +33,7 @@ class Germancredit(object):
 
     def get_data(self):
         DATA_FILE = pkg_resources.resource_filename('riskModel', 'data/germancredit.csv')
-        data = pd.read_csv(DATA_FILE,encoding='utf-8', sep=' ', header=None,names= self.all_feature + ["target"])
+        data = pd.read_csv(DATA_FILE,encoding='utf-8', sep=' ', header=None,names= self.all_feature + ['target'])
         return data
 
     def get_describe(self):

@@ -6,16 +6,12 @@
 ### *pip install riskModel*
 ***
 ## *主要功能*
-- 数据导入  DbRead(`mysql中导入`,`mongodb中导入`)
-- 数据探索分析 (`数据概述BasicStat`,`单变量分布Plot`,`缺失可视化Lot.plot_miss`)
-- 数据清洗  Preprocess(`变量类型划分--异常值检测--异常值处理--重复行(列)处理--众数处理--缺失处理`)
-- 数据采样  DataSample(`随机采样, 随机平衡采样, Borderline-SMOTE过采样, Easy Ensemble 欠采样`)
-- 特征离散化,特征工程 FeatureBin(`无序类别变量分箱组合, 有序数值变量分箱组合,支持单调性检验, 自定义分箱`)
-- WOE转换(`woe_trans`)
-- 特征选择 SelectFeature(`基于IV信息值, 基于重要度, 基于共线性, 
-基于VIF方差膨胀因子, 基于逐步回归, 基于L1正则化`)
-- 参数调优 SearchParam(`网格搜索,贝叶斯调优`)
-- 模型训练 TrainLr(`普通回归,交叉验证回归`)
+- 数据探索分析 (`数据概述BasicStat`)
+- 数据清洗  Preprocess(`异常值检测--异常值处理--众数处理--缺失处理`)
+- 数据采样  DataSample(`随机平衡采样, Borderline-SMOTE过采样`)
+- 特征离散化,特征工程 cat_bin,num_bin(`无序类别变量分箱组合, 有序数值变量分箱组合,支持单调性检验合并`)
+- 特征选择 SelectFeature(`基于IV信息值, 基于共线性, 基于VIF方差膨胀因子, 基于L1正则化`)
+- 模型训练 lr(`lr`)
 - 评分卡模型 ScoreCard(`标准评分卡转换,模型预测[概率预测,评分预测]`)
 - 风险决策 (`风险策略,稳定性评估PSI,评分决策表,KS`) 
 ***
@@ -23,180 +19,146 @@
 # -*- coding: utf-8 -*-
 """
 评分卡示例:
-0.数据探索分析,1.数据清洗,2.特征分箱,3.特征选择,4.模型训练,5.评分卡构建,6.模型评估,7.风险决策
+0.数据探索分析,1.数据预处理,2.特征分箱,3.特征选择,4.模型训练,5.评分卡构建,6.模型评估,7.风险决策
 """
+
+import scorecardpy as sc
+
 import joblib
-import riskModel as rm
+import riskModel as rs
+from  sklearn.model_selection import train_test_split
 
-file = './result/'
+path = './result/'
 # 导入数据
-germancredit = rm.Germancredit()
-german = germancredit.get_data()
-print("数据描述:", germancredit.get_describe())
-print("数据样例:", german.head())
+germanCredit = rs.Germancredit()
+df = germanCredit.get_data()
+germanCredit.get_describe()
+df.sample(5)
+# 数值化
+for col in germanCredit.sub_col:
+    df[col] = df[col].apply(lambda x:int(str(x)[1:]))
+# 替换
+df = df.replace(germanCredit.rep_dict)
+df['target'] = df['target'].replace({1:0,2:1})
 
-# 预处理变量
-########################################
+all_cols = germanCredit.all_feature
+num_cols = germanCredit.num_col
+cat_cols = germanCredit.cat_col
+
+#######################################
 # 0.数据探索分析
 #######################################
-# bs = rm.BasicStat(df=german)
-# # 字段基本统计
-# for col in german.columns:
-#     describe = bs.feature_describe(x=col)
-#     print(describe)
-# # 数据分布报告
-# bs.df_report(fname=file+'germancredit.html')
-# # 分布图
-# plot = rm.Plot(df=german)
-# # 缺失可视化
-# plot.plot_miss(fname=file+'miss_draw.png',asc=1,figsize=(15,8))
-# # 单变量探索(示例)
-# plot.draw_histogram(var='credit_amount',num_bins=20,fname=file+'credit_amount.png')
+bs = rs.BasicStat(df=df)
+html_report = bs.get_report()
+# 保存
+with open(path+'dt_report.html','w',encoding='utf8') as f:
+    f.write(html_report)
 
-########################################
+df_report = bs.get_describe()
+df_report.to_excel(path+'df_report.xlsx')
+
+#######################################
 # 1.数据清洗
 #######################################
-pr = rm.Preprocess()
-# 变量类型划分(实际业务中不能使用此方法)
-# num_col,cat_col = pr.split_col(df=german,no_split=['creditability'],min_size=4)
-# print("number:",num_col,"\n","category:",cat_col)
-# 数值化
-for col in germancredit.sub_col:
-    german[col] = german[col].apply(lambda x:int(str(x)[1:]))
-# 替换
-german = german.replace(germancredit.rep_dict)
-# 连续变量中特殊字符检测
-str_set = pr.find_str(df=german,num_col=germancredit.num_col)
-print("特殊字符:",str_set)
-# 异常字符检测
-special_set = pr.special_char(df=german,feature_col=germancredit.all_feature)
-print("异常字符:",special_set)
-# 异常值检测及处理
-german = pr.outlier(df=german,col="age_in_years",low_percent=0.03,up_percent=0.97,cat_percent=0.001,special_value=None)
-# 删除重复行
-german = pr.drop_dupl(df=german,axis=0)
-# 缺失和众数删除
-delete_col = pr.drop_nan_mode(df=german,nan_percent=0.9,mode_percent=0.95,col_list=germancredit.all_feature,drop=False)
-print("删除变量:",delete_col)
-all_feature = [i for i in germancredit.all_feature if i not in delete_col]
-num_col = [i for i in germancredit.num_col if i not in delete_col]
-cat_col = [i for i in germancredit.cat_col if i not in delete_col]
-int_col = [i for i in germancredit.int_col if i not in delete_col]
-german = german[all_feature+['target']]
+pr = rs.Preprocess()
+str_s = pr.find_str(df=df,cols=num_cols)
+print('字符:',str_s)
+sign_s = pr.find_sign(df=df,cols=all_cols)
+print('特殊符号:',sign_s)
+# 离群值
+outliers = pr.outlier_drop(df=df,cols=all_cols,low_percent=0.001,up_percent=0.999,cat_percent=0.01)
+print('离群值:',outliers)
+# 离群值处理
+for k,v in outliers.items():
+    if type(v) == dict:
+        df[k] = df[k].apply(lambda x:v.get('low') if x < v.get('low') else v.get('up') if x > v.get('up') else x)
+    elif type(v) == list:
+        df[k] = df[k].replace(v,df[k].mode()[0])
+
+# 缺失统计
+missm_result = pr.miss_mode_cnt(df=df,cols=all_cols)
+print(missm_result)
+# 连续变量删除缺失80%+,众数率90%+
+# 分类变量删除缺失率90%,众数率95%+
+num_cols = [i for i in num_cols if missm_result['miss'][i] < 0.8 and missm_result['mode'][i] < 0.8]
+cat_cols = [i for i in cat_cols if missm_result['miss'][i] < 0.8 and missm_result['mode'][i] < 0.95]
+print(f'drop num cols :{[i for i in all_cols if i not in num_cols+cat_cols]}')
+all_cols = num_cols + cat_cols
 # 缺失填充
-# 类别
-german = pr.fill_nan(df=german,value='-99',method='mode',col_list=cat_col,min_miss_rate=0.05)
-# 数值
-german = pr.fill_nan(df=german,value=-99,method='mean',col_list=num_col,min_miss_rate=0.05)
-# 保存清洗后的数据
-german['target'] = german['target'].apply(lambda x: 1 if x ==2 else 0)
+df = pr.fill_nan(df=df,cols=all_cols,values=-99999,min_miss_rate=0.05)
 
-# 过采样,注意: 随机采样,平衡采样方法无需数值化, 过采样和下采样方法必须数值化
-df,factorize_dict = pr.factor_map(df=german,col_list=cat_col)
-ds = rm.DataSample(df=df,target='target')
-df_res = ds.over_sample(features=list(set(num_col+cat_col+int_col)),method='BorderLine',sampling_strategy="minority")
-# 变量值映射,对已数值化变量映射为字符型
-# 类别变量和有序离散变量整数化
-for col in int_col:
-    df_res[col] = df_res[col].apply(lambda x:int(x))
-    df[col] = df[col].apply(lambda x:int(x))
+# 字符变量数值化
+df,factorize_dict = pr.factor_map(df=df,cols=cat_cols)
+# 过采样
+int_cols = cat_cols + [i for i in num_cols if i in germanCredit.int_col]
+print('int_cols:',int_cols)
 
-replace_dict={k:{i:j for j,i in v.items()} for k,v in factorize_dict.items()}
-# print(replace_dict)
-df_res = df_res.replace(replace_dict)
-df = df.replace(replace_dict)
-#############################################
+ds = rs.DataSample(df=df,cols=all_cols,target='target',sampling_strategy='minority')
+df_res = ds.over_sample(int_cols=int_cols)
+# 分类变量还原
+to_factorize = {k: {i:j for j,i in v.items()} for k,v in factorize_dict.items()}
+df_res = df_res.replace(to_factorize)
+df = df.replace(to_factorize)
+########################################
 # 2.特征工程
-#############################################
-fe = rm.FeatureBin(df=df_res,target="target",special_values=['-99',-99],
-                   min_per_fine_bin=0.01,stop_limit=0.01,min_per_coarse_bin=0.05,max_num_bin=8,method="tree")
-# 类别变量分箱
-cat_bin_dict,cat_var_iv = fe.category_bin(bin_feature=cat_col,max_num_bin=5)
-# 数值变量分箱
-num_bin_dict,num_var_iv = fe.number_bin(bin_feature=num_col,max_num_bin=5,no_mono_feature=None)
-# 自定义分箱
-# self_bin_dict,self_var_iv = fe.self_bin(var='',special_values=[],breaks_list={})
-# 合并分箱结果
-bin_dict = {**cat_bin_dict,**num_bin_dict}
-var_iv = {**cat_var_iv,**num_var_iv}
-# 分箱可视化
-bplt = rm.WoeBinPlot(bin_dict=bin_dict)
-_ = bplt.woe_plot(features=all_feature,show_iv=True,save=False,path=file)
-# woe 转换
-df_woe,woe_feature = rm.woe_trans(df=df_res,bin_dict=bin_dict,trans_feature=all_feature,target="target")
-_ = df_woe[woe_feature].isnull().sum()
-print('缺失检测:', _[_ > 0])
+########################################
+# 样本划分
+# woe bin
+train,valid = train_test_split(df_res,test_size=0.3,random_state=0)
+cat_bin,cat_iv = rs.cat_bin(df=train,cols=cat_cols,target='target',specials=['-99999'],
+                            bin_num_limit=5,count_distr_limit=0.05,method='chimerge')
+num_bin,num_iv = rs.num_bin(df=train,cols=num_cols,target='target',specials=[-99999],
+                            bin_num_limit=8,count_distr_limit=0.05,sc_method='chimerge',
+                            non_mono_cols=['age_in_years'],init_bins=15,init_min_samples=0.05,init_method='chi')
 
-###############################################
+bins = {**cat_bin,**num_bin}
+ivs = {**cat_iv,**num_iv}
+# woe转换
+train_woe = sc.woebin_ply(dt=train,bins=bins)
+valid_woe = sc.woebin_ply(dt=valid,bins=bins)
+df_woe = sc.woebin_ply(dt=df,bins=bins)
+
+#########################################
 # 3.特征选择
-##############################################
-sf = rm.SelectFeature(df_woe=df_woe)
-# 基于特征IV
-high_iv = sf.baseOn_iv(var_iv=var_iv,threshold=0.02,is_save=False,path=file)
-high_iv = {k+"_woe":v for k,v in high_iv.items()}
-print("high iv feature:",high_iv)
-# 基于特征重要度
-high_importance = sf.baseOn_importance(features=woe_feature,target="target",n_estimators=100,is_save=False,path=file)
-print("high importance feature:",high_importance)
-# 基于共线性检验
-feature_vif1 = sf.baseOn_collinear(features=high_iv,cor_threshold=0.8,is_save=False,path=file)
-print("两两共线性检验:",feature_vif1)
-feature_vif2 = sf.baseOn_vif(features=high_iv,max_vif=10)
-print("VIF共线性检验:",feature_vif2)
-# 基于逐步回归
-step_feature = sf.baseOn_steplr(features=feature_vif2,target='target',C=1,class_weight='balanced',norm="AIC")
-# 基于l1正则化
-select_feature = sf.baseOn_l1(features=list(step_feature.keys()),target='target',C=0.1,class_weight="balanced",drop_plus=False)
-print("基于L1正在:",select_feature)
+#########################################
+sf = rs.SelectFeature()
+high_iv = sf.baseOn_iv(ivd=ivs,thred=0.05,is_draw=False)
+low_vif = sf.baseOn_collinear(df=train_woe,high_iv=high_iv,thred=0.7,is_draw=False)
+ml_cols, best_C = sf.baseOn_l1(X=train_woe[low_vif.keys()],y=train_woe['target'],Kfold=5,drop_plus=False)
 
-##############################################
+#########################################
 # 4.模型训练
-#############################################
-select_feature = list(select_feature.keys())
-# 超参优化
-ps = rm.SearchParam(X=df_woe[select_feature].values,y=df_woe['target'].values)
-grid_param = ps.grid_search(param_grid={"penalty":["l1","l2"],"C":[0.01,0.05,0.1,0.5,1]},cv=5,class_weight='balanced',scoring='roc_auc')
-print("grid best param:",grid_param)
-# 模型实例化
-tlr = rm.TrainLr(df_woe=df_woe,features=select_feature,target='target',penalty='l2',class_weight='balanced')
-lr = tlr.lr(C=0.37,filename=file)
-lr_cv = tlr.lr_cv(Cs=[0.01,0.05,0.1,0.5,1],cv=5,scoring='roc_auc',filename=file)
+#########################################
 
-################################
+lr = rs.Lr(C=best_C)
+lr.fiting(X=train_woe[ml_cols.keys()],y=train_woe['target'],filename=path)
+joblib.dump(lr,path+'lr.pkl')
+
+########################################
 # 5.评分卡构建
-################################
-model_feature = [i.replace("_woe","") for i in select_feature]
-sc = rm.ScoreCard(lr=lr_cv,bin_dict=bin_dict,model_feature=model_feature,score0=600,pdo=50)
-# 输出标准评分卡
-df_card = sc.score_card(return_df=True)
-df_card.to_excel(file+"score_card.xlsx")
+########################################
 
-dict_card = sc.score_card(return_df=False)
-joblib.dump(dict_card,file+"score_card.pkl")
-df_res['score'] = sc.score_ply(df=df_res)
-
-###############################
+card = rs.ScoreCard(lr=lr,bins=bins,ml_cols=[i.replace('_woe','') for i in ml_cols.keys()],
+                    score0=600,pdo=50)
+card_df = card.score_card()
+joblib.dump(card,path+'card.pkl')
+########################################
 # 6.模型评估,真实样本评估
-##############################
-german_woe,_ = rm.woe_trans(df=df,bin_dict=bin_dict,trans_feature=all_feature,target="target")
-# print(german_woe.isnull().sum())
-y_prob = lr_cv.predict_proba(german_woe[select_feature].values)[:,1]
-y_true = german_woe['target'].values
-# 模型指标
-model_norm = rm.model_norm(y_true=y_true,y_prob=y_prob)
-print("模型测试结果: ",model_norm)
-# 作图
-mplt = rm.PlotModel(y_true=y_true,y_prob=y_prob)
-mplt.plot_roc_curve(filename=file)
-mplt.plot_ks_curve(filename=file)
-mplt.plot_confusion_matrix(labels=[0,1],filename=file)
-df['score'] = sc.score_ply(df=df,only_total_score=True)
-###############################
-# 7.风险决策, score cut_off
-##############################
-cut_off_score = rm.stragety_score(score_df=df,step=25,score="score",label='target',
-                                  amount=5000,tenor=6,IRR=0.36,capital_cost=0.07,
-                                  guest_cost=0,data_cost=0,bad_loss=0.6)
-cut_off_score.to_excel(file+"cut_off_score.xlsx")
+#######################################
+valid['prob'] = lr.predict_proba(valid_woe[ml_cols.keys()])[:,1]
+df['prob'] = lr.predict_proba(df_woe[ml_cols.keys()])[:,1]
+
+print(f'valid evaluate:{rs.model_norm(valid["target"],valid["prob"])}')
+print(f'test evaluate:{rs.model_norm(df["target"],df["prob"])}')
+
+valid['score'] = card.apply_score(valid)
+df['score'] = card.apply_score(df)
+
+########################################
+# 7.风险决策
+#######################################
+cut_off = rs.stragety_score(df=df,step=50,score='score',label='target')
+cut_off.to_excel(path+'cut_off.xlsx')
+
 ```
 
