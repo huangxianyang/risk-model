@@ -84,7 +84,7 @@ class ScoreCard(object):
         coef_df = pd.Series(self.model.coef_[0], index=np.array(xs)).loc[lambda x: x != 0]  # .reset_index(drop=True)
 
         # scorecard
-        basepoints = A - B * self.model.intercept_[0]
+        basepoints = A - B * self.model.intercept_[0] # 校准
         card = {}
         card['baseScore'] = pd.DataFrame({'variable': 'basepoints', 'bin': '基础分', 'points': round(basepoints, 2)},index=[0])
         for i in coef_df.index:

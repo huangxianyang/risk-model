@@ -5,7 +5,8 @@
 """
 
 import scorecardpy as sc
-
+import warnings
+warnings.filterwarnings('ignore')
 import joblib
 import riskModel as rs
 from  sklearn.model_selection import train_test_split

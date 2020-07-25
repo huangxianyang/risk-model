@@ -107,6 +107,7 @@ def stragety_score(df:pd.DataFrame,step:int=50,score:str='score',label:str='targ
     df['KS'] = df['sum_bad_rate'] - df['sum_good_rate'] # 区分度ks
     df['bad_rate'] = df['bad']/df['total'] # 每个分数段的坏比率
     df['good_rate'] = df['good']/df['total'] #每个分数段的好比率
+    df['lift'] = df['sum_bad_rate']/df['sum_total_rate'] # 提升度
     return df
 
 

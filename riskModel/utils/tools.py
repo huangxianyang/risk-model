@@ -7,11 +7,12 @@ import pandas as pd
 import numpy as np
 from sklearn.metrics import roc_curve,auc,f1_score,recall_score,precision_score,accuracy_score
 
-def Prob2Score(prob, basePoint=600,PDO=50):
+def Prob2Score(prob,basePoint=600,PDO=50,odds=20):
     # 将概率转化成分数且为正整数
     y = np.log(prob/(1-prob))
-    y2 = basePoint+PDO/np.log(2)*(-y)
-    score = y2.astype("int")
+    a = basePoint - y * np.log(odds)
+    y2 = a - PDO/np.log(2)*(y)
+    score = y2.astype('int')
     return score
 
 def str2num(s):

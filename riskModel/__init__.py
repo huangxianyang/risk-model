@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-__version__ = '1.0.5'
+__version__ = '1.0.6'
 
 from .EDA import BasicStat # 数据探索分析
 from .Preprocessing import Preprocess,DataSample # 数据清洗, 数据抽样
